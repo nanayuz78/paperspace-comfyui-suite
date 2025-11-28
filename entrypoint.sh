@@ -18,10 +18,12 @@ update_comfyui() {
     echo "WARN: git not available; skipping ComfyUI update" >&2
     return 0
   fi
-  echo "Updating ComfyUI in ${COMFYUI_APP_BASE} ..."
+  echo "Fixing ComfyUI to version v0.3.73 in ${COMFYUI_APP_BASE} ..."
   (
     cd "${COMFYUI_APP_BASE}"
-    git pull --ff-only origin master
+    # 強制的にv0.3.73にチェックアウト
+    git fetch --tags
+    git checkout v0.3.73
     micromamba run -p ${MAMBA_ROOT_PREFIX}/envs/pyenv pip install -r /opt/app/ComfyUI/requirements.txt
   )
 }

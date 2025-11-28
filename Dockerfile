@@ -74,7 +74,8 @@ ENV PATH=${MAMBA_ROOT_PREFIX}/envs/pyenv/bin:${MAMBA_ROOT_PREFIX}/bin:${PATH}
 # Application: ComfyUI
 # ------------------------------
 RUN set -eux; \
-    git clone https://github.com/comfyanonymous/ComfyUI.git /opt/app/ComfyUI && \
+    # 修正: git clone時に v0.3.73 タグを指定
+    git clone --branch v0.3.73 https://github.com/comfyanonymous/ComfyUI.git /opt/app/ComfyUI && \
     mkdir -p /opt/app/ComfyUI/custom_nodes && \
     git clone https://github.com/Comfy-Org/ComfyUI-Manager.git /opt/app/ComfyUI/custom_nodes/ComfyUI-Manager && \
     git clone https://github.com/mochidroppot/ComfyUI-ProxyFix.git /opt/app/ComfyUI/custom_nodes/ComfyUI-ProxyFix && \
