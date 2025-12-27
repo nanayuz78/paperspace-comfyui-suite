@@ -68,9 +68,17 @@ RUN micromamba run -p ${MAMBA_ROOT_PREFIX}/envs/pyenv pip install /tmp/suite && 
 
 # User setup
 RUN set -eux; \
-    useradd -m -s /bin/bash ${MAMBA_USER}; \
-    chown -R ${MAMBA_USER}:${MAMBA_USER} /home/${MAMBA_USER} ${MAMBA_ROOT_PREFIX} /opt/app; \
-    mkdir -p /workspace && chown ${MAMBA_USER}:${MAMBA_USER} /workspace
+    # ユーザーがまだ存在しない場合のみ作成
+    if ! id -u "${MAMBA_USER}" >/dev/null 2>&1; then \
+        useradd -m -s /bin/bash "${MAMBA_USER}"; \
+    fi; \
+    # 所有権を変更する前に、対象ディレクトリが確実に存在することを確認
+    mkdir -p /home/${MAMBA_USER} ${MAMBA_ROOT_PREFIX} /opt/app /workspace; \
+    # 所有権の一括変更
+    chown -R ${MAMBA_USER}:${MAMBA_USER} /home/${MAMBA_USER}; \
+    chown -R ${MAMBA_USER}:${MAMBA_USER} ${MAMBA_ROOT_PREFIX}; \
+    chown -R ${MAMBA_USER}:${MAMBA_USER} /opt/app; \
+    chown -R ${MAMBA_USER}:${MAMBA_USER} /workspace
 
 WORKDIR /workspace
 COPY --chown=${MAMBA_USER}:${MAMBA_USER} scripts/entrypoint.sh /usr/local/bin/entrypoint.sh
