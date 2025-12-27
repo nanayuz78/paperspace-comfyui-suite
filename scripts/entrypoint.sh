@@ -6,30 +6,36 @@ STORAGE_BASE_DIR="/storage/sd-suite"
 STORAGE_COMFYUI_DIR="${STORAGE_BASE_DIR}/comfyui"
 STORAGE_JLAB_DIR="${STORAGE_BASE_DIR}/jlab"
 JLAB_EXTENSIONS_DIR="${STORAGE_JLAB_DIR}/extensions"
+STORAGE_SYSTEM_BASE="${STORAGE_BASE_DIR}/system"
 COMFYUI_APP_BASE="/opt/app/ComfyUI"
 COMFYUI_CUSTOM_NODES_DIR="${STORAGE_COMFYUI_DIR}/custom_nodes"
 
+# Create directories
 mkdir -p "${STORAGE_COMFYUI_DIR}/input" \
  "${STORAGE_COMFYUI_DIR}/output" \
  "${STORAGE_COMFYUI_DIR}/custom_nodes" \
  "${STORAGE_COMFYUI_DIR}/user" \
  "${JLAB_EXTENSIONS_DIR}"
 
+# Install JupyterLab extensions
 install_jlab_extensions() {
   micromamba run -p ${MAMBA_ROOT_PREFIX}/envs/pyenv pip install /opt/app/jlab_extensions/jupyterlab_comfyui_cockpit-0.1.0-py3-none-any.whl
+
   shopt -s nullglob
   local extensions=("$JLAB_EXTENSIONS_DIR"/*.whl)
   if [ ${#extensions[@]} -gt 0 ]; then
+    echo "Installing JupyterLab extensions: ${extensions[@]}"
     micromamba run -p ${MAMBA_ROOT_PREFIX}/envs/pyenv pip install --no-cache-dir "${extensions[@]}"
   fi
   shopt -u nullglob
 }
 
+# Update ComfyUI repo to the latest on container start
 update_comfyui() {
   local auto="${COMFYUI_AUTO_UPDATE:-1}"
-  if [ "$auto" = "0" ] || [ "$auto" = "false" ] || [ ! -d "${COMFYUI_APP_BASE}/.git" ]; then
-    return 0
-  fi
+  if [ "$auto" = "0" ] || [ "$auto" = "false" ]; then return 0; fi
+  if [ ! -d "${COMFYUI_APP_BASE}/.git" ]; then return 0; fi
+  echo "Updating ComfyUI in ${COMFYUI_APP_BASE} ..."
   (
     cd "${COMFYUI_APP_BASE}"
     git pull --ff-only origin master 2>/dev/null || git pull --ff-only origin main 2>/dev/null || true
@@ -37,6 +43,7 @@ update_comfyui() {
   )
 }
 
+# Update pre-installed custom nodes
 update_preinstalled_nodes() {
   local auto="${COMFYUI_CUSTOM_NODES_AUTO_UPDATE:-1}"
   if [ "$auto" = "0" ] || [ "$auto" = "false" ]; then return 0; fi
@@ -49,9 +56,11 @@ update_preinstalled_nodes() {
   done
 }
 
+# Install python deps for all custom nodes on every container start
 install_custom_node_deps_every_start() {
   local auto="${COMFYUI_CUSTOM_NODES_AUTO_INSTALL_DEPS:-1}"
   if [ "$auto" = "0" ] || [ "$auto" = "false" ] || [ ! -d "${COMFYUI_CUSTOM_NODES_DIR}" ]; then return 0; fi
+  echo "Ensuring Python deps for custom nodes (every start) ..."
   shopt -s nullglob
   local reqs=("${COMFYUI_CUSTOM_NODES_DIR}"/*/requirements.txt)
   for req in "${reqs[@]}"; do
@@ -70,14 +79,14 @@ link_dir() {
   ln -sfn "$dst" "$src"
 }
 
-# インフラ準備 (Jupyter拡張のみ同期実行)
+# Base setup
 install_jlab_extensions
 
 for d in input output custom_nodes user; do
   link_dir "${COMFYUI_APP_BASE}/${d}" "${STORAGE_COMFYUI_DIR}/${d}"
 done
 
-# 重い処理をバックグラウンドに逃がして、即座にJupyterを立ち上げる
+# Run heavy updates in background to ensure Jupyter starts quickly
 (
   update_comfyui
   update_preinstalled_nodes
