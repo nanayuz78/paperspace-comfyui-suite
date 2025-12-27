@@ -1,7 +1,8 @@
 [project]
-name = "paperspace-comfyui-suite"
+name = "paperspace-stable-diffusion-suite"
 version = "0.1.0"
-description = "Jupyter server proxy launcher entries for ComfyUI"
+description = "Jupyter server proxy launcher entries for ComfyUI and Filebrowser"
+readme = "LICENSE"
 requires-python = ">=3.8"
 dependencies = [
     "jupyter-server-proxy>=4.1.0",
@@ -9,7 +10,7 @@ dependencies = [
 
 [project.entry-points."jupyter_serverproxy_servers"]
 # 各サーバーを個別に設定 - これらの名前がランチャーに表示される
-comfyui = "paperspace_comfyui_suite:get_comfyui_config"
+comfyui = "paperspace_stable_diffusion_suite:get_comfyui_config"
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]
