@@ -12,6 +12,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # --- 追加: ディスク容量不足を解消するために不要なツールを削除 ---
+      - name: Free Disk Space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          swap-storage: true
+
       # Login to DockerHub
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
