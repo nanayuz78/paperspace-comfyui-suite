@@ -6,7 +6,7 @@
 # ----------------------------------------------------------------------------
 FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
 
-LABEL maintainer="mochidroppot <mochidroppot@gmail.com>"
+LABEL maintainer="nanayuz78"
 
 # ------------------------------
 # Build-time and runtime settings
@@ -26,9 +26,6 @@ ENV MAMBA_USER=${MAMBA_USER} \
 
 # ------------------------------
 # Base packages
-# - bzip2: extract micromamba tarball
-# - libgl1/libglib2.0-0: common GUI/ML deps
-# - iproute2: provides `ss` used in HEALTHCHECK
 # ------------------------------
 RUN set -eux; \
     codename="$(. /etc/os-release && echo "$VERSION_CODENAME")"; \
@@ -40,29 +37,26 @@ RUN set -eux; \
     apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout="30" update && \
     apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout="30" install -y --no-install-recommends \
       ca-certificates curl wget git nano vim zip unzip tzdata build-essential \
-      libgl1-mesa-glx libglib2.0-0 openssh-client bzip2 pkg-config iproute2 tini ffmpeg sudo && \
+      libgl1-mesa-glx libglib2.0-0 openssh-client bzip2 pkg-config iproute2 tini ffmpeg && \
     rm -rf /var/lib/apt/lists/*
 
 # ------------------------------
 # micromamba (system-wide)
 # ------------------------------
-# Retrieve micromamba and install to /usr/local/bin; fall back to install.sh if layout changes
 RUN set -eux; \
     mkdir -p ${MAMBA_ROOT_PREFIX}; \
     curl -fsSL -o /tmp/micromamba.tar.bz2 "https://micro.mamba.pm/api/micromamba/linux-64/latest"; \
     if tar -tjf /tmp/micromamba.tar.bz2 | grep -q '^bin/micromamba$'; then \
       tar -xjf /tmp/micromamba.tar.bz2 -C /usr/local/bin --strip-components=1 bin/micromamba; \
     else \
-      echo "micromamba tar layout unexpected; falling back to install.sh"; \
       curl -fsSL -o /tmp/install_micromamba.sh https://micro.mamba.pm/install.sh; \
       bash /tmp/install_micromamba.sh -b -p ${MAMBA_ROOT_PREFIX}; \
       ln -sf ${MAMBA_ROOT_PREFIX}/bin/micromamba /usr/local/bin/micromamba; \
     fi; \
-    micromamba --version; \
     echo "export PATH=${MAMBA_ROOT_PREFIX}/bin:\$PATH" > /etc/profile.d/mamba.sh
 
 # ------------------------------
-# Python environment (isolated prefix)
+# Python environment
 # ------------------------------
 RUN set -eux; \
     micromamba create -y -p ${MAMBA_ROOT_PREFIX}/envs/pyenv python=${PYTHON_VERSION}; \
@@ -72,7 +66,7 @@ RUN set -eux; \
 ENV PATH=${MAMBA_ROOT_PREFIX}/envs/pyenv/bin:${MAMBA_ROOT_PREFIX}/bin:${PATH}
 
 # ------------------------------
-# Application: ComfyUI
+# Application: ComfyUI (Basic Setup)
 # ------------------------------
 RUN set -eux; \
     git clone https://github.com/comfyanonymous/ComfyUI.git /opt/app/ComfyUI && \
@@ -80,12 +74,12 @@ RUN set -eux; \
     git clone https://github.com/Comfy-Org/ComfyUI-Manager.git /opt/app/ComfyUI/custom_nodes/ComfyUI-Manager && \
     git config --global --add safe.directory /opt/app/ComfyUI
 
-# PyTorch (CUDA 12.4 wheels) + Core libs + ComfyUI requirements
+# PyTorch (CUDA 12.4 wheels) + Essential libs
 RUN set -eux; \
     export PIP_NO_CACHE_DIR=0; \
     micromamba run -p ${MAMBA_ROOT_PREFIX}/envs/pyenv pip install --index-url https://download.pytorch.org/whl/cu124 torch torchvision torchaudio && \
     micromamba run -p ${MAMBA_ROOT_PREFIX}/envs/pyenv pip install --prefer-binary --upgrade-strategy only-if-needed \
-      jupyterlab==4.* notebook ipywidgets jupyter-server-proxy tensorboard \
+      jupyterlab==4.* notebook ipywidgets jupyterlab-git jupyter-server-proxy tensorboard \
       matplotlib seaborn pandas numpy scipy tqdm rich supervisor && \
     if [ -f /opt/app/ComfyUI/requirements.txt ]; then \
       micromamba run -p ${MAMBA_ROOT_PREFIX}/envs/pyenv pip install -r /opt/app/ComfyUI/requirements.txt; \
@@ -95,58 +89,42 @@ RUN set -eux; \
     fi; \
     micromamba clean -a -y
 
-# Install extensions (jupyterlab-comfyui-cockpit)
+# JupyterLab Cockpit extension pre-stage
 RUN set -eux; \
     mkdir -p /opt/app/jlab_extensions && \
     curl -fsSL -o /opt/app/jlab_extensions/jupyterlab_comfyui_cockpit-0.1.0-py3-none-any.whl https://github.com/mochidroppot/jupyterlab-comfyui-cockpit/releases/download/v0.1.0/jupyterlab_comfyui_cockpit-0.1.0-py3-none-any.whl
 
 # ------------------------------
-# Non-root user for interactive sessions
+# User & Permissions
 # ------------------------------
 RUN set -eux; \
     useradd -m -s /bin/bash ${MAMBA_USER}; \
-    chown -R ${MAMBA_USER}:${MAMBA_USER} /home/${MAMBA_USER}; \
-    chown -R ${MAMBA_USER}:${MAMBA_USER} ${MAMBA_ROOT_PREFIX}; \
-    chown -R ${MAMBA_USER}:${MAMBA_USER} /opt/app; \
-    echo "${MAMBA_USER} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+    chown -R ${MAMBA_USER}:${MAMBA_USER} /home/${MAMBA_USER} ${MAMBA_ROOT_PREFIX} /opt/app
 
-# Configure git for the mambauser
-USER ${MAMBA_USER}
-RUN git config --global --add safe.directory /opt/app/ComfyUI
-
-# Switch back to root for workspace setup
 USER root
+RUN mkdir -p /workspace /workspace/data /workspace/notebooks
 
-# Workspace directories for notebooks and data
-RUN mkdir -p /workspace /workspace/data /workspace/notebooks /storage && \
-    chown -R ${MAMBA_USER}:${MAMBA_USER} /workspace /storage
-
-# Switch to non-root; set Python env in PATH
 USER ${MAMBA_USER}
 ENV PATH=${MAMBA_ROOT_PREFIX}/envs/pyenv/bin:${MAMBA_ROOT_PREFIX}/bin:${PATH}
 ENV CONDA_DEFAULT_ENV=pyenv
 
 # ------------------------------
-# Entrypoint via Tini
+# Entrypoint & App Configuration
 # ------------------------------
 USER root
 WORKDIR /notebooks
 
-# Copy entrypoint script
 COPY scripts/entrypoint.sh /usr/local/bin/entrypoint.sh
-COPY scripts/setup_dependencies.sh /usr/local/bin/setup_dependencies.sh
 COPY config/supervisord.conf /etc/supervisord.conf
-RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/setup_dependencies.sh && \
-    chown ${MAMBA_USER}:${MAMBA_USER} /usr/local/bin/entrypoint.sh /usr/local/bin/setup_dependencies.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh && chown ${MAMBA_USER}:${MAMBA_USER} /usr/local/bin/entrypoint.sh
 
-# Install extensions (jupyterlab-comfyui-cockpit)
-COPY pyproject.toml /tmp/paperspace-stable-diffusion-suite/pyproject.toml
-COPY src /tmp/paperspace-stable-diffusion-suite/src
-RUN micromamba run -p ${MAMBA_ROOT_PREFIX}/envs/pyenv pip install /tmp/paperspace-stable-diffusion-suite && \
-    rm -rf /tmp/paperspace-stable-diffusion-suite
+COPY pyproject.toml /tmp/suite/pyproject.toml
+COPY src /tmp/suite/src
+RUN micromamba run -p ${MAMBA_ROOT_PREFIX}/envs/pyenv pip install /tmp/suite && rm -rf /tmp/suite
 
-# Expose Jupyter port.
-EXPOSE 8888 8189
+EXPOSE 8888
 
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/entrypoint.sh"]
 USER ${MAMBA_USER}
+
+CMD ["jupyter", "lab", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--ServerApp.token=", "--ServerApp.password="]
