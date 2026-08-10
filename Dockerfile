@@ -13,6 +13,7 @@ LABEL maintainer="nanayuz78"
 # ------------------------------
 ARG PYTHON_VERSION=3.11
 ARG MAMBA_USER=mambauser
+ARG COMFYUI_VERSION=v0.30.0
 ENV MAMBA_USER=${MAMBA_USER} \
     DEBIAN_FRONTEND=noninteractive \
     TZ=Etc/UTC \
@@ -22,7 +23,8 @@ ENV MAMBA_USER=${MAMBA_USER} \
     PYTHONUNBUFFERED=1 \
     NVIDIA_VISIBLE_DEVICES=all \
     NVIDIA_DRIVER_CAPABILITIES=compute,utility \
-    MAMBA_ROOT_PREFIX=/opt/conda
+    MAMBA_ROOT_PREFIX=/opt/conda \
+    COMFYUI_VERSION=${COMFYUI_VERSION}
 
 # ------------------------------
 # Base packages
@@ -70,6 +72,10 @@ ENV PATH=${MAMBA_ROOT_PREFIX}/envs/pyenv/bin:${MAMBA_ROOT_PREFIX}/bin:${PATH}
 # ------------------------------
 RUN set -eux; \
     git clone https://github.com/comfyanonymous/ComfyUI.git /opt/app/ComfyUI && \
+    cd /opt/app/ComfyUI && \
+    git fetch --tags origin "${COMFYUI_VERSION}" && \
+    git checkout "${COMFYUI_VERSION}" && \
+    cd /; \
     mkdir -p /opt/app/ComfyUI/custom_nodes && \
     git clone https://github.com/Comfy-Org/ComfyUI-Manager.git /opt/app/ComfyUI/custom_nodes/ComfyUI-Manager && \
     git config --global --add safe.directory /opt/app/ComfyUI
