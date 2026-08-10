@@ -2,6 +2,7 @@
 set -euo pipefail
 
 MAMBA_ROOT_PREFIX=/opt/conda
+COMFYUI_VERSION="${COMFYUI_VERSION:-v0.30.0}"
 STORAGE_BASE_DIR="/storage/sd-suite"
 STORAGE_COMFYUI_DIR="${STORAGE_BASE_DIR}/comfyui"
 STORAGE_JLAB_DIR="${STORAGE_BASE_DIR}/jlab"
@@ -39,12 +40,13 @@ done
   # JupyterLab Extension install
   micromamba run -p ${MAMBA_ROOT_PREFIX}/envs/pyenv pip install --no-cache-dir /opt/app/jlab_extensions/*.whl >> /tmp/setup_async.log 2>&1 || true
 
-  # ComfyUI Update
+  # ComfyUI Version Pin (常に固定バージョンをcheckoutする。最新版へは追従しない)
   if [ "${COMFYUI_AUTO_UPDATE:-1}" != "0" ]; then
-    echo "Updating ComfyUI..." >> /tmp/setup_async.log
+    echo "Pinning ComfyUI to ${COMFYUI_VERSION}..." >> /tmp/setup_async.log
     (
       cd "${COMFYUI_APP_BASE}"
-      git pull --ff-only origin master 2>/dev/null || git pull --ff-only origin main 2>/dev/null || true
+      git fetch --tags origin "${COMFYUI_VERSION}" 2>/dev/null || true
+      git checkout "${COMFYUI_VERSION}" 2>/dev/null || true
       micromamba run -p ${MAMBA_ROOT_PREFIX}/envs/pyenv pip install -r requirements.txt >> /tmp/setup_async.log 2>&1
     )
   fi
