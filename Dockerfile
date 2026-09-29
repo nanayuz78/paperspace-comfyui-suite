@@ -1,10 +1,12 @@
 # ----------------------------------------------------------------------------
 # Image for Paperspace Notebook (GPU) running JupyterLab
-# - Base: NVIDIA CUDA 12.4 runtime (Ubuntu 22.04) with cuDNN
+# - Base: NVIDIA CUDA 13.0 runtime (Ubuntu 22.04) with cuDNN
+#   NOTE: CUDA 13.0 dropped support for Maxwell/Pascal/Volta GPUs.
+#   Minimum supported GPU architecture is Turing (compute capability 7.5+).
 # - Package manager: micromamba (conda-compatible)
 # - Default: launches JupyterLab on port 8888
 # ----------------------------------------------------------------------------
-FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
+FROM nvidia/cuda:13.0.2-cudnn-runtime-ubuntu22.04
 
 LABEL maintainer="nanayuz78"
 
@@ -74,10 +76,10 @@ RUN set -eux; \
     git clone https://github.com/Comfy-Org/ComfyUI-Manager.git /opt/app/ComfyUI/custom_nodes/ComfyUI-Manager && \
     git config --global --add safe.directory /opt/app/ComfyUI
 
-# PyTorch (CUDA 12.6 wheels, torch>=2.7 required by ComfyUI v0.31.0+) + Essential libs
+# PyTorch (CUDA 13.0 wheels, required for ComfyUI INT8 ConvRot support) + Essential libs
 RUN set -eux; \
     export PIP_NO_CACHE_DIR=0; \
-    micromamba run -p ${MAMBA_ROOT_PREFIX}/envs/pyenv pip install --index-url https://download.pytorch.org/whl/cu126 "torch>=2.7" "torchvision>=0.22" "torchaudio>=2.7" && \
+    micromamba run -p ${MAMBA_ROOT_PREFIX}/envs/pyenv pip install --index-url https://download.pytorch.org/whl/cu130 torch torchvision torchaudio && \
     micromamba run -p ${MAMBA_ROOT_PREFIX}/envs/pyenv pip install --prefer-binary --upgrade-strategy only-if-needed \
       jupyterlab==4.* notebook ipywidgets jupyterlab-git jupyter-server-proxy tensorboard \
       matplotlib seaborn pandas numpy scipy tqdm rich supervisor && \
