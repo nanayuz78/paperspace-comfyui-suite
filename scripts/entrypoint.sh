@@ -46,6 +46,7 @@ done
       cd "${COMFYUI_APP_BASE}"
       git pull --ff-only origin master 2>/dev/null || git pull --ff-only origin main 2>/dev/null || true
       micromamba run -p ${MAMBA_ROOT_PREFIX}/envs/pyenv pip install -r requirements.txt >> /tmp/setup_async.log 2>&1
+      micromamba run -p ${MAMBA_ROOT_PREFIX}/envs/pyenv pip install -r manager_requirements.txt >> /tmp/setup_async.log 2>&1
     )
   fi
 
