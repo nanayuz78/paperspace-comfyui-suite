@@ -73,7 +73,6 @@ ENV PATH=${MAMBA_ROOT_PREFIX}/envs/pyenv/bin:${MAMBA_ROOT_PREFIX}/bin:${PATH}
 RUN set -eux; \
     git clone https://github.com/comfyanonymous/ComfyUI.git /opt/app/ComfyUI && \
     mkdir -p /opt/app/ComfyUI/custom_nodes && \
-    git clone https://github.com/Comfy-Org/ComfyUI-Manager.git /opt/app/ComfyUI/custom_nodes/ComfyUI-Manager && \
     git config --global --add safe.directory /opt/app/ComfyUI
 
 # PyTorch (CUDA 13.0 wheels, required for ComfyUI INT8 ConvRot support) + Essential libs
@@ -86,8 +85,8 @@ RUN set -eux; \
     if [ -f /opt/app/ComfyUI/requirements.txt ]; then \
       micromamba run -p ${MAMBA_ROOT_PREFIX}/envs/pyenv pip install -r /opt/app/ComfyUI/requirements.txt; \
     fi; \
-    if [ -f /opt/app/ComfyUI/custom_nodes/ComfyUI-Manager/requirements.txt ]; then \
-      micromamba run -p ${MAMBA_ROOT_PREFIX}/envs/pyenv pip install -r /opt/app/ComfyUI/custom_nodes/ComfyUI-Manager/requirements.txt; \
+    if [ -f /opt/app/ComfyUI/manager_requirements.txt ]; then \
+      micromamba run -p ${MAMBA_ROOT_PREFIX}/envs/pyenv pip install -r /opt/app/ComfyUI/manager_requirements.txt; \
     fi; \
     micromamba clean -a -y
 
